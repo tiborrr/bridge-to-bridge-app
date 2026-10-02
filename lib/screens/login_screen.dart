@@ -130,6 +130,20 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: OutlinedButton.icon(
+                    onPressed: () => context.go('/'),
+                    icon: const Icon(Icons.play_circle_outline, size: 18, color: Color(0xFF27AE60)),
+                    label: const Text('Direct doorgaan (Demo / Simulatie)', style: TextStyle(color: Color(0xFF27AE60), fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF27AE60)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    ),
+                  ),
+                ),
                 SizedBox(height: MediaQuery.of(context).padding.bottom),
               ],
             ),
