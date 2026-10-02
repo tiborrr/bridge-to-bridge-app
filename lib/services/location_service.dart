@@ -63,6 +63,12 @@ class LocationService extends ChangeNotifier {
 
   PointLatLng? _previousLocation;
   PointLatLng? get currentLocation => _previousLocation;
+  Position? _lastPosition;
+  Position? get lastPosition => _lastPosition;
+  double get currentHeading => _lastPosition?.heading ?? 0.0;
+  double get currentSpeedKmh =>
+      (_lastPosition != null && _lastPosition!.speed > 0) ? _lastPosition!.speed * 3.6 : 0.0;
+
   RaceState currentState = RaceState.waiting;
   Trajectory? currentTrajectory;
   
@@ -137,6 +143,7 @@ class LocationService extends ChangeNotifier {
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.low),
       );
       if (position != null) {
+        _lastPosition = position;
         _previousLocation = PointLatLng(position.latitude, position.longitude);
         notifyListeners();
       }
@@ -162,6 +169,7 @@ class LocationService extends ChangeNotifier {
         distanceFilter: 5,
       ),
     ).listen((Position position) {
+      _lastPosition = position;
       final currentLocation = PointLatLng(position.latitude, position.longitude);
 
       if (currentState == RaceState.waiting || currentState == RaceState.racing) {
@@ -185,6 +193,7 @@ class LocationService extends ChangeNotifier {
     _positionSubscription?.cancel();
     _positionSubscription = null;
     _previousLocation = null;
+    _lastPosition = null;
     currentState = RaceState.waiting;
     currentTrajectory = null;
     activeTrajectories = [];
