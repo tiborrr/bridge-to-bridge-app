@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import '../models/rowing_models.dart';
 import '../models/trajectory.dart';
@@ -68,6 +70,12 @@ class LiveRaceProvider extends ChangeNotifier {
   TeamData? currentTeamData;
   DateTime? _raceStartTime;
 
+  final List<LatLng> traveledPath = [];
+
+  Position? get currentPosition => _locationService.lastPosition;
+  double get currentHeading => _locationService.currentHeading;
+  double get currentSpeedKmh => _locationService.currentSpeedKmh;
+
   String get targetLabel {
     if (raceState == RaceState.waiting) return "TOT AAN DE START";
     if (raceState == RaceState.racing) return "TOT AAN DE FINISH";
@@ -118,6 +126,7 @@ class LiveRaceProvider extends ChangeNotifier {
     
     // Start tracking ONLY the selected trajectory
     _locationService.startTracking([selectedTrajectory]);
+    _locationService.addListener(_onLocationServiceChanged);
     
     _raceStateSubscription = _locationService.raceStateStream.listen((state) async {
       final oldState = raceState;
@@ -178,6 +187,19 @@ class LiveRaceProvider extends ChangeNotifier {
       currentTeamData = data;
       notifyListeners();
     });
+  }
+
+  void _onLocationServiceChanged() {
+    final pos = _locationService.lastPosition;
+    if (pos != null) {
+      final point = LatLng(pos.latitude, pos.longitude);
+      if (traveledPath.isEmpty ||
+          traveledPath.last.latitude != point.latitude ||
+          traveledPath.last.longitude != point.longitude) {
+        traveledPath.add(point);
+      }
+    }
+    notifyListeners();
   }
 
   double _lastGyroX = 0;
@@ -259,6 +281,7 @@ class LiveRaceProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _locationService.removeListener(_onLocationServiceChanged);
     _accelSubscription?.cancel();
     _gyroSubscription?.cancel();
     _analysisTimer?.cancel();

@@ -7,9 +7,7 @@ import '../services/location_service.dart';
 import '../usecases/analyze_telemetry_usecase.dart';
 import '../utils/result.dart';
 import '../services/data_recording_service.dart';
-import 'pre_race_screen.dart';
 import 'live_race_screen.dart';
-
 import 'package:flutter/services.dart';
 import 'rower_live_race_screen.dart';
 import '../widgets/app_drawer.dart';
@@ -44,7 +42,6 @@ class _DashboardContainerState extends State<DashboardContainer> {
     finishDirectionBearing: 135.0,
   );
 
-  bool _isRacing = false;
   String? _selectedRole;
   int? _seatNumber;
   String? _side;
@@ -90,7 +87,6 @@ class _DashboardContainerState extends State<DashboardContainer> {
       Position? pos;
       final perm = await Geolocator.checkPermission();
       if (perm == LocationPermission.whileInUse || perm == LocationPermission.always) {
-        // Gebruik getLastKnownPosition voor directe feedback, anders getCurrent met een timeout
         pos = await Geolocator.getLastKnownPosition();
         pos ??= await Geolocator.getCurrentPosition(
             locationSettings: const LocationSettings(
@@ -98,19 +94,13 @@ class _DashboardContainerState extends State<DashboardContainer> {
               timeLimit: Duration(seconds: 3),
             ));
       } else if (perm == LocationPermission.denied) {
-        final newPerm = await Geolocator.requestPermission();
-        if (newPerm == LocationPermission.whileInUse || newPerm == LocationPermission.always) {
-          pos = await Geolocator.getCurrentPosition(
-              locationSettings: const LocationSettings(
-                accuracy: LocationAccuracy.low, 
-                timeLimit: Duration(seconds: 3),
-              ));
-        }
+        return;
       }
 
       if (pos != null && mounted) {
         final userLatLng = LatLng(pos.latitude, pos.longitude);
-        final distance = const Distance();
+        const distance = Distance();
+
         setState(() {
           _trajectories.sort((a, b) {
             final centerA = LatLng(
@@ -125,7 +115,6 @@ class _DashboardContainerState extends State<DashboardContainer> {
             final distB = distance.as(LengthUnit.Meter, userLatLng, centerB);
             return distA.compareTo(distB);
           });
-          // Update geselecteerde traject naar de dichtstbijzijnde als gebruiker nog niets anders heeft gekozen
           if (_trajectories.isNotEmpty) {
             _selectedTrajectory = _trajectories.first;
           }
@@ -136,14 +125,7 @@ class _DashboardContainerState extends State<DashboardContainer> {
     }
   }
 
-  void _startRace() {
-    setState(() {
-      _isRacing = true;
-    });
-  }
-
   Future<void> _setRole(String role) async {
-    // Voor zowel stuur als roeier verbergen we de navigatie balk
     widget.onHideNavBar?.call(true);
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -152,9 +134,6 @@ class _DashboardContainerState extends State<DashboardContainer> {
 
     setState(() {
       _selectedRole = role;
-      if (role == 'roeier') {
-        _isRacing = true; // Rowers are always in "live" mode
-      }
     });
   }
 
@@ -227,7 +206,6 @@ class _DashboardContainerState extends State<DashboardContainer> {
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     setState(() {
       _selectedRole = null;
-      _isRacing = false;
     });
   }
 
@@ -248,9 +226,7 @@ class _DashboardContainerState extends State<DashboardContainer> {
         side: _side,
       ),
       child: _selectedRole == 'stuur'
-          ? (_isRacing 
-              ? LiveRaceScreen(onStop: _clearRole) 
-              : PreRaceScreen(onRaceStart: _startRace, onCancel: _clearRole))
+          ? LiveRaceScreen(onStop: _clearRole)
           : RowerLiveRaceScreen(onStop: _clearRole),
     );
   }
@@ -378,22 +354,22 @@ class _DashboardContainerState extends State<DashboardContainer> {
             ),
             child: Icon(
               Icons.gps_fixed,
-              color: isSim ? Colors.white : Colors.black54,
+              color: isSim ? Colors.white : const Color(0xFF5C5F60),
               size: 20,
             ),
           ),
           const SizedBox(width: 12),
-          Expanded(
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'GPX Simulatiemodus',
+                Text(
+                  'GPX Replay Simulatie',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
                 Text(
-                  isSim ? 'Actief: Real-life IJssel race replay' : 'Test direct zonder op het water te zijn',
-                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  'Simuleer GPS op de IJssel in Deventer',
+                  style: TextStyle(color: Color(0xFF717C96), fontSize: 12),
                 ),
               ],
             ),
@@ -401,15 +377,9 @@ class _DashboardContainerState extends State<DashboardContainer> {
           Switch(
             value: isSim,
             activeThumbColor: const Color(0xFFF2994A),
-            onChanged: (val) async {
+            onChanged: (val) {
               if (val) {
-                await locationService.enableGpxSimulation();
-                setState(() {
-                  _selectedTrajectory = gpxDefaultTrajectory;
-                  if (!_trajectories.any((t) => t.id == gpxDefaultTrajectory.id)) {
-                    _trajectories.insert(0, gpxDefaultTrajectory);
-                  }
-                });
+                locationService.enableGpxSimulation(assetPath: 'assets/gpx/bridge_to_bridge.gpx');
               } else {
                 locationService.disableGpxSimulation();
               }
@@ -426,53 +396,56 @@ class _DashboardContainerState extends State<DashboardContainer> {
     required IconData icon,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFD9DADB), width: 2),
-          boxShadow: const [
-            BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4)),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: Color(0xFF021C4B),
-                shape: BoxShape.circle,
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFD9DADB)),
+      ),
+      color: Colors.white,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEEEEE),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: const Color(0xFF021C4B), size: 28),
               ),
-              child: Icon(icon, color: Colors.white, size: 32),
-            ),
-            const SizedBox(width: 24),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: const Color(0xFF021C4B),
-                      fontWeight: FontWeight.bold,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF021C4B),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    description,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF5C5F60),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF717C96),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const Icon(Icons.arrow_forward_ios, color: Color(0xFF828282), size: 16),
-          ],
+              const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF717C96)),
+            ],
+          ),
         ),
       ),
     );
