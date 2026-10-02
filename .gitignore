@@ -27,3 +27,10 @@ doc/api/
 
 .flutter-plugins
 .flutter-plugins-dependencies
+
+# IDEs and editors
+.idea/
+*.iml
+.vscode/
+*.code-workspace
+.DS_Store

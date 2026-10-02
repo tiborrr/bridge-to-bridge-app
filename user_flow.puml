@@ -1,0 +1,50 @@
+@startuml
+skinparam componentStyle rectangle
+skinparam handwritten false
+skinparam backgroundColor #f9f9f9
+skinparam defaultFontName Inter
+
+title Bridge-to-Bridge App User Flow
+
+actor User
+
+node "Auth" {
+  [Login Screen]
+}
+
+node "Training Flow" {
+  [Pre-Race Navigation Screen] <<Dashboard>>
+  [Live Segment Screen] <<Dashboard>>
+}
+
+node "Secondary Tabs" {
+  [History Screen]
+  [Leaderboard Screen]
+}
+
+User -> [Login Screen] : Opens app
+[Login Screen] --> [Pre-Race Navigation Screen] : Successful login
+
+note right of [Pre-Race Navigation Screen]
+  **"Navigatie naar Start"**
+  - Choose Start Bridge
+  - Distance to Start Line
+  - Warm-up Stats (Speed, Stroke Rate)
+  - Status: "Wachten op start..."
+end note
+
+[Pre-Race Navigation Screen] --> [Live Segment Screen] : Start line crossed
+
+note right of [Live Segment Screen]
+  **"Live Race Dashboard"**
+  - Live Segment Name
+  - Lead / Trail Time vs Opponent
+  - Progress Bar
+  - Race Telemetry (Speed, Stroke Rate, HR)
+end note
+
+[Live Segment Screen] --> [History Screen] : Race finishes
+[Pre-Race Navigation Screen] --> [History Screen] : Switch tab
+[Pre-Race Navigation Screen] --> [Leaderboard Screen] : Switch tab
+
+@enduml
